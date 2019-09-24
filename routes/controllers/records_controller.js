@@ -24,66 +24,69 @@ if(process.env.NODE_ENV == 'development') {
 
 const submit = (req,res,next) => {
 
+	var isRecordFound = false;
+
 	Record.findOne({ docHash : req.body.data})
 	.then(record => {
 		if(record == null) {
 			return web3.eth.getTransactionCount(account);
 		}else {
+			isRecordFound = true;
 			getTransactionDetails(record,res);
 		}
 	})
 	.then(nonce => {
+		if(!isRecordFound){
+			var dataToSend = req.body.data;
 
-		var dataToSend = req.body.data;
+			const rawTx = {
+  				nonce : nonce,
+   				gasPrice: web3.utils.toHex(web3.utils.toWei('200', 'gwei')),
+	    		gasLimit: 4700000,
+	    		to: "0x2B535829D2fe401c57aAE4a581e128d6f15Cc464",
+				value: 0,
+				data: dataToSend
+			}
 
-		const rawTx = {
-  			nonce : nonce,
-   			gasPrice: web3.utils.toHex(web3.utils.toWei('200', 'gwei')),
-	    	gasLimit: 4700000,
-	    	to: "0x2B535829D2fe401c57aAE4a581e128d6f15Cc464",
-			value: 0,
-			data: dataToSend
-		}
+			const tx = new Tx(rawTx);
+			const privateKeyBuffer = new Buffer(privateKey,'hex');
 
-		const tx = new Tx(rawTx);
-		const privateKeyBuffer = new Buffer(privateKey,'hex');
+			tx.sign(privateKeyBuffer);
+			var raw = '0x' + tx.serialize().toString('hex');
 
-		tx.sign(privateKeyBuffer);
-		var raw = '0x' + tx.serialize().toString('hex');
-
-
-		var promise = new Promise((resolve,reject) => {
-			web3.eth.sendSignedTransaction(raw, (err,transactionHash) => {
-				if(err) reject(err)
-				resolve(transactionHash);	
+			var promise = new Promise((resolve,reject) => {
+				web3.eth.sendSignedTransaction(raw, (err,transactionHash) => {
+					if(err) reject(err)
+					resolve(transactionHash);	
+				})
 			})
+
+			return promise;
+			}
 		})
-
-		return promise;
-	})
 	.then(transactionHash => {
-		if(transactionHash == null) {
-			error.message = "Failed to record data to blockchain";
-			throw error;
-		}
+		if(!isRecordFound) {
+			if(transactionHash == null) {
+				error.message = "Failed to record data to blockchain";
+				throw error;
+			}
 
-		return Record.create({
-			docHash : req.body.data,
-			txnHash : transactionHash
-		});
+			return Record.create({
+				docHash : req.body.data,
+				txnHash : transactionHash
+			});
+		}
 	})
 	.then(record => {
-		console.log(record);
-
-		if(record == null) {
-			error.message = "Failed to record data to DB";
-			throw error;
+		if(!isRecordFound) {
+			if(record == null) {
+				error.message = "Failed to record data to DB";
+				throw error;
+			}
+			res.send(successResponse(record));
 		}
-		res.send(successResponse(record));
 	})
 	.catch((err) => {
-		console.log(err);
-
 		res.send(errorResponse(err));
 	})
 }
@@ -111,7 +114,6 @@ const getRecord = (req,res,next) => {
 		}));
 	})
 	.catch((err) => {
-		console.log(err);
 		res.send(errorResponse(err));
 	})
 }

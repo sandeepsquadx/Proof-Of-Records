@@ -10,6 +10,7 @@ module.exports = {
 			if(result.error){
 				return res.send({"status" : 400, "data" : null, "error" : result.error});
 			}else{
+				console.log("in next");
 				next();
 			}
 		}
@@ -31,12 +32,12 @@ module.exports = {
 	
 	schemas : {
 		hashSchema : Joi.object().keys({
-			docHash : Joi.string().regex(/^[A-Fa-f0-9]{64}$/).required()
+			data : Joi.string().regex(/^[A-Fa-f0-9]{64}$/).required()
 		}), 
 
 		recordSchema : Joi.object().keys({
-			docHash : Joi.string().regex(/^[A-Fa-f0-9]{64}$/).required(),
-			txnHash : Joi.string().regex(/^^0x([A-Fa-f0-9]{64})$/).required(),
+			dochash : Joi.string().regex(/^[A-Fa-f0-9]{64}$/).required(),
+			txnhash : Joi.string().regex(/^^0x([A-Fa-f0-9]{64})$/).required(),
 		})
 	}
 }
